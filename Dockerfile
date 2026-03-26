@@ -24,8 +24,8 @@ RUN npm run build
 # Production image
 FROM node:18-alpine
 
-# Install OpenSSL for Prisma runtime
-RUN apk add --no-cache openssl
+# Install OpenSSL and Bash for Prisma runtime
+RUN apk add --no-cache openssl bash
 
 WORKDIR /app/backend
 
@@ -42,12 +42,15 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/backend/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/backend/prisma ./prisma
+COPY --from=builder /app/backend/start.sh ./start.sh
+
+# Hacer ejecutable el script de inicio
+RUN chmod +x ./start.sh
 
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Ejecutar migraciones y luego iniciar la aplicación
-# Usamos 'prisma db push' para sincronizar el schema con la BBDD
-ENTRYPOINT ["sh", "-c", "npx prisma db push --force-reset && node dist/index.js"]
+# Ejecutar script de inicio
+CMD ["./start.sh"]

@@ -49,4 +49,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Ejecutar migraciones y luego iniciar la aplicación
-ENTRYPOINT ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Usamos 'prisma db push' para sincronizar el schema con la BBDD
+ENTRYPOINT ["sh", "-c", "npx prisma db push --force-reset && node dist/index.js"]

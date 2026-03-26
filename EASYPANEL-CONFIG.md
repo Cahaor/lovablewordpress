@@ -12,10 +12,10 @@ NODE_ENV=production
 PORT=3001
 
 # Database - PostgreSQL (Internal URL)
-DATABASE_URL="postgresql://Cahaor:3CE479B79C97F2B8C6163ED041F0D7E9@automatizaciones_registrohorario:5432/registrohorario?schema=public&sslmode=disable"
+DATABASE_URL="postgresql://Cahaor:3CE479B79C97F2B8C6163ED041F0D7E9@automatizaciones_registrohorario:5432/lovable_wp_pro?schema=public&sslmode=disable"
 
 # JWT Secret (generate a unique one for production)
-JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+JWT_SECRET="lovable-wp-pro-super-secret-jwt-key-2024"
 
 # Email Configuration (SMTP)
 SMTP_HOST=mail.sensei360.com

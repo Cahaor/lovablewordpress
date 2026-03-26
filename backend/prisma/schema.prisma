@@ -1,0 +1,185 @@
+// Prisma Schema for Lovable WP Pro
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  plan      Plan     @default(FREE)
+  credits   Int      @default(3)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  projects     Project[]
+  conversions  Conversion[]
+  licenses     License[]
+  wordpressSites WordPressSite[]
+  
+  @@index([email])
+}
+
+enum Plan {
+  FREE
+  PRO
+  AGENCY
+}
+
+// Projects
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  pages       Page[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+// Pages within a project
+model Page {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  components  Component[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([projectId, slug])
+  @@index([projectId])
+}
+
+// Components within a page
+model Component {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  html        String   @db.Text
+  css         String   @db.Text
+  props       Json?
+  pageId      String
+  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([pageId])
+}
+
+// Conversion history
+model Conversion {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sourceType  String   // lovable, bolt, base44
+  fileName    String
+  fileSize    Int
+  componentsCount Int
+  status      ConversionStatus @default(PENDING)
+  
+  result      Json?
+  error       String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+}
+
+enum ConversionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Licenses for WordPress sites
+model License {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        LicenseType @default(SINGLE)
+  expiresAt   DateTime
+  isActive    Boolean  @default(true)
+  
+  wordpressSites WordPressSite[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([key])
+  @@index([userId])
+}
+
+enum LicenseType {
+  SINGLE
+  MULTI
+  UNLIMITED
+}
+
+// Connected WordPress sites
+model WordPressSite {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  licenseId   String?
+  license     License? @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+  
+  name        String
+  url         String
+  apiUrl      String
+  credentials Json     // Encrypted WordPress API credentials
+  
+  isActive    Boolean  @default(true)
+  lastSync    DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([url])
+}
+
+// Template library (shared templates)
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  
+  html        String   @db.Text
+  css         String   @db.Text
+  previewImage String?
+  
+  isPublic    Boolean  @default(false)
+  downloads   Int      @default(0)
+  
+  tags        String[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([isPublic])
+}

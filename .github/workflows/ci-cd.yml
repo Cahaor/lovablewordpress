@@ -1,0 +1,137 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Backend Tests & Build
+  backend:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: ./backend
+        run: npm run lint
+      
+      - name: Run tests
+        working-directory: ./backend
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+          JWT_SECRET: test-secret
+      
+      - name: Build
+        working-directory: ./backend
+        run: npm run build
+      
+      - name: Build Docker image
+        run: docker build -t lovable-backend ./backend
+
+  # Frontend Tests & Build
+  frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: modern-market-makers-main/modern-market-makers-main/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./modern-market-makers-main/modern-market-makers-main
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: ./modern-market-makers-main/modern-market-makers-main
+        run: npm run lint
+      
+      - name: Run tests
+        working-directory: ./modern-market-makers-main/modern-market-makers-main
+        run: npm test
+      
+      - name: Build
+        working-directory: ./modern-market-makers-main/modern-market-makers-main
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:3001
+      
+      - name: Build Docker image
+        run: docker build -t lovable-frontend ./modern-market-makers-main/modern-market-makers-main
+
+  # Deploy to Production
+  deploy:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/lovable-wp-pro
+            git pull origin main
+            docker-compose pull
+            docker-compose up -d
+            docker system prune -af
+
+  # Deploy WordPress Plugin
+  deploy-wp-plugin:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Create ZIP package
+        run: |
+          cd lovable-wp-exporter
+          zip -r lovable-wp-pro.zip . -x "*.git*" "*.env*" "node_modules/*"
+      
+      - name: Upload to WordPress.org (optional)
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.WP_SVN_USER }}
+          SVN_PASSWORD: ${{ secrets.WP_SVN_PASS }}
+        with:
+          asset-directory: lovable-wp-exporter

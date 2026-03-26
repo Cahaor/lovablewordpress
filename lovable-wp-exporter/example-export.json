@@ -1,0 +1,163 @@
+{
+  "export_name": "Example Hero Component",
+  "source_type": "lovable",
+  "components": {
+    "Hero": {
+      "name": "Hero",
+      "type": "hero",
+      "props": {
+        "title": {
+          "name": "title",
+          "default": "Welcome to our website",
+          "required": false
+        },
+        "subtitle": {
+          "name": "subtitle",
+          "default": "We create amazing digital experiences",
+          "required": false
+        },
+        "ctaText": {
+          "name": "ctaText",
+          "default": "Get Started",
+          "required": false
+        },
+        "ctaLink": {
+          "name": "ctaLink",
+          "default": "/contact",
+          "required": false
+        }
+      },
+      "body": "<div class=\"hero-section\">\n  <div class=\"container\">\n    <div class=\"hero-content\">\n      <h1 class=\"hero-title\">{title}</h1>\n      <p class=\"hero-subtitle\">{subtitle}</p>\n      <div class=\"hero-actions\">\n        <a href=\"{ctaLink}\" class=\"btn btn-primary\">{ctaText}</a>\n        <a href=\"/learn-more\" class=\"btn btn-secondary\">Learn More</a>\n      </div>\n    </div>\n    <div class=\"hero-image\">\n      <img src=\"/hero-image.png\" alt=\"Hero\" />\n    </div>\n  </div>\n</div>",
+      "jsx": {
+        "root_elements": [
+          {
+            "tag": "div",
+            "attributes": {
+              "class": "hero-section"
+            }
+          }
+        ]
+      },
+      "tailwind_classes": [
+        "container",
+        "flex",
+        "items-center",
+        "justify-between",
+        "p-8",
+        "text-4xl",
+        "font-bold",
+        "text-white",
+        "bg-blue-500",
+        "rounded-lg",
+        "shadow-lg"
+      ],
+      "imports": [
+        {
+          "source": "@/components/ui/button",
+          "named": {
+            "Button": "Button"
+          }
+        }
+      ]
+    }
+  },
+  "styles": {
+    "tailwind": [
+      "container",
+      "flex",
+      "items-center",
+      "justify-between",
+      "p-8",
+      "text-4xl",
+      "font-bold",
+      "text-white",
+      "bg-blue-500",
+      "rounded-lg",
+      "shadow-lg"
+    ]
+  },
+  "assets": {
+    "images": [
+      {
+        "url": "/hero-image.png",
+        "type": "image"
+      }
+    ],
+    "fonts": [],
+    "icons": []
+  },
+  "metadata": {
+    "parsed_at": "2024-01-15 10:30:00",
+    "total_components": 1,
+    "dependencies": {
+      "react": true,
+      "lucide": false,
+      "shadcn": true
+    }
+  },
+  "converted": {
+    "html": {
+      "Hero": "<div class=\"hero-section\">\n  <div class=\"container\">\n    <div class=\"hero-content\">\n      <h1 class=\"hero-title\">Welcome to our website</h1>\n      <p class=\"hero-subtitle\">We create amazing digital experiences</p>\n      <div class=\"hero-actions\">\n        <a href=\"/contact\" class=\"btn btn-primary\">Get Started</a>\n        <a href=\"/learn-more\" class=\"btn btn-secondary\">Learn More</a>\n      </div>\n    </div>\n    <div class=\"hero-image\">\n      <img src=\"/hero-image.png\" alt=\"Hero\" />\n    </div>\n  </div>\n</div>"
+    },
+    "php": {
+      "Hero": "<?php\nadd_shortcode('lovable_hero', 'render_lovable_hero');\n\nfunction render_lovable_hero($atts = array()) {\n    $defaults = array(\n        'title' => 'Welcome to our website',\n        'subtitle' => 'We create amazing digital experiences',\n        'ctaText' => 'Get Started',\n        'ctaLink' => '/contact',\n    );\n    $atts = shortcode_atts($defaults, $atts, 'lovable_hero');\n    \n    extract($atts);\n    \n    ob_start();\n?>\n<div class=\"hero-section\">\n  <div class=\"container\">\n    <div class=\"hero-content\">\n      <h1 class=\"hero-title\"><?php echo esc_html($title); ?></h1>\n      <p class=\"hero-subtitle\"><?php echo esc_html($subtitle); ?></p>\n      <div class=\"hero-actions\">\n        <a href=\"<?php echo esc_url($ctaLink); ?>\" class=\"btn btn-primary\"><?php echo esc_html($ctaText); ?></a>\n        <a href=\"/learn-more\" class=\"btn btn-secondary\">Learn More</a>\n      </div>\n    </div>\n    <div class=\"hero-image\">\n      <img src=\"/hero-image.png\" alt=\"Hero\" />\n    </div>\n  </div>\n</div>\n<?php\n    return ob_get_clean();\n}\n"
+    },
+    "css": {
+      "converted": {
+        "container": "max-width: 1280px; margin-left: auto; margin-right: auto;",
+        "flex": "display: flex;",
+        "items-center": "align-items: center;",
+        "justify-between": "justify-content: space-between;",
+        "p-8": "padding: 2rem;",
+        "text-4xl": "font-size: 2.25rem;",
+        "font-bold": "font-weight: 700;",
+        "text-white": "color: #ffffff;",
+        "bg-blue-500": "background-color: #3b82f6;",
+        "rounded-lg": "border-radius: 0.5rem;",
+        "shadow-lg": "box-shadow: 0 10px 15px rgba(0,0,0,0.1);"
+      }
+    },
+    "wordpress": {
+      "template": "<?php\n/**\n * Template Name: Lovable Export Template\n * Auto-generated from Lovable/Bolt.new export\n */\n\nget_header();\n?>\n\n<div class=\"lovable-template\">\n    <?php echo do_shortcode('[lovable_hero]'); ?>\n</div>\n\n<?php\nget_footer();\n"
+    },
+    "elementor": {
+      "Hero": {
+        "name": "hero",
+        "title": "Hero",
+        "category": "lovable-components",
+        "icon": "fa fa-plug",
+        "controls": [
+          {
+            "name": "title",
+            "label": "Title",
+            "type": "TEXT",
+            "default": "Welcome to our website",
+            "placeholder": "Enter title"
+          },
+          {
+            "name": "subtitle",
+            "label": "Subtitle",
+            "type": "TEXT",
+            "default": "We create amazing digital experiences",
+            "placeholder": "Enter subtitle"
+          },
+          {
+            "name": "ctaText",
+            "label": "CTA Text",
+            "type": "TEXT",
+            "default": "Get Started",
+            "placeholder": "Enter CTA text"
+          },
+          {
+            "name": "ctaLink",
+            "label": "CTA Link",
+            "type": "URL",
+            "default": "/contact",
+            "placeholder": "Enter CTA link"
+          }
+        ],
+        "render_callback": "render_lovable_elementor_hero"
+      }
+    }
+  }
+}

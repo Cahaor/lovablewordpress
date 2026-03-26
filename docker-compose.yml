@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lovable-postgres
+    environment:
+      POSTGRES_USER: lovable_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lovable_secure_pass}
+      POSTGRES_DB: lovable_wp_pro
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - lovable-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lovable_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: lovable-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - lovable-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lovable-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://lovable_user:${DB_PASSWORD:-lovable_secure_pass}@postgres:5432/lovable_wp_pro?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lovable-network
+    restart: unless-stopped
+    command: sh -c "npx prisma migrate deploy && npm start"
+
+  # Frontend (optional - can be deployed separately on Vercel/Netlify)
+  frontend:
+    build:
+      context: ./modern-market-makers-main/modern-market-makers-main
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
+    container_name: lovable-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - lovable-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  lovable-network:
+    driver: bridge

@@ -18,4 +18,31 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Proxy API requests to backend in development
+  server: {
+    ...((() => {
+      if (mode === "development") {
+        return {
+          host: "localhost",
+          port: 5173,
+          hmr: {
+            overlay: false,
+          },
+          proxy: {
+            "/api": {
+              target: "http://localhost:3001",
+              changeOrigin: true,
+            },
+          },
+        };
+      }
+      return {
+        host: "localhost",
+        port: 5173,
+        hmr: {
+          overlay: false,
+        },
+      };
+    })()),
+  },
 }));

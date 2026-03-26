@@ -1,16 +1,41 @@
-# Dockerfile raíz para EasyPanel
-FROM node:18-alpine AS builder
+# Dockerfile multi-stage para EasyPanel (Frontend + Backend)
+
+# ============================================
+# STAGE 1: Build Frontend
+# ============================================
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copiar package files del frontend
+COPY modern-market-makers-main/package*.json ./
+COPY modern-market-makers-main/vite.config.ts ./
+COPY modern-market-makers-main/tsconfig*.json ./
+COPY modern-market-makers-main/tailwind.config.ts ./
+COPY modern-market-makers-main/postcss.config.js ./
+COPY modern-market-makers-main/index.html ./
+COPY modern-market-makers-main/public ./public
+COPY modern-market-makers-main/src ./src
+
+# Instalar dependencias y construir
+RUN npm install
+RUN npm run build
+
+# ============================================
+# STAGE 2: Build Backend
+# ============================================
+FROM node:18-alpine AS backend-builder
 
 # Install OpenSSL for Prisma
 RUN apk add --no-cache openssl
 
-WORKDIR /app
-
-# Copiar backend
-COPY backend/package*.json ./backend/
 WORKDIR /app/backend
 
-# Instalar TODAS las dependencias (incluyendo dev para build)
+# Copiar package files del backend
+COPY backend/package*.json ./
+COPY backend/prisma ./prisma
+
+# Instalar dependencias (incluyendo dev para build)
 RUN npm install && npm cache clean --force
 
 COPY backend/. .
@@ -21,28 +46,32 @@ RUN npx prisma generate
 # Build TypeScript
 RUN npm run build
 
-# Production image
+# ============================================
+# STAGE 3: Production Image
+# ============================================
 FROM node:18-alpine
 
 # Install OpenSSL and Bash for Prisma runtime
 RUN apk add --no-cache openssl bash
 
-WORKDIR /app/backend
+WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copiar solo archivos construidos y production deps
-COPY --from=builder /app/backend/dist ./dist
-COPY --from=builder /app/backend/package.json ./package.json
+# Copiar backend
+COPY --from=backend-builder /app/backend/dist ./backend/dist
+COPY --from=backend-builder /app/backend/package.json ./backend/package.json
+COPY --from=backend-builder /app/backend/prisma ./backend/prisma
+COPY --from=backend-builder /app/backend/node_modules/.prisma ./backend/node_modules/.prisma
+COPY --from=backend-builder /app/backend/node_modules/@prisma ./backend/node_modules/@prisma
+COPY --from=backend-builder /app/backend/start.sh ./backend/start.sh
 
-# Instalar solo production dependencies
+# Copiar frontend build
+COPY --from=frontend-builder /app/frontend/dist ./backend/public
+
+# Instalar backend dependencies (production only)
+WORKDIR /app/backend
 RUN npm install --omit=dev && npm cache clean --force
-
-# Copiar Prisma client generado y schema
-COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/backend/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/backend/prisma ./prisma
-COPY --from=builder /app/backend/start.sh ./start.sh
 
 # Hacer ejecutable el script de inicio
 RUN chmod +x ./start.sh

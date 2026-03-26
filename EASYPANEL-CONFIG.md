@@ -24,7 +24,7 @@ SMTP_USER=hola@sensei360.com
 SMTP_PASS=Malaga*2020Sensei360
 
 # Frontend URL (CORS)
-FRONTEND_URL=https://app.lovablewp.pro
+FRONTEND_URL=https://automatizaciones-lovable-wp-pro.lxtgmq.easypanel.host
 ```
 
 ### Optional Variables

@@ -1,6 +1,4 @@
 # Dockerfile raíz para EasyPanel
-# Este Dockerfile redirige al backend
-
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -8,7 +6,9 @@ WORKDIR /app
 # Copiar backend
 COPY backend/package*.json ./backend/
 WORKDIR /app/backend
-RUN npm install --omit=dev && npm cache clean --force
+
+# Instalar TODAS las dependencias (incluyendo dev para build)
+RUN npm install && npm cache clean --force
 
 COPY backend/. .
 
@@ -25,9 +25,15 @@ WORKDIR /app/backend
 
 ENV NODE_ENV=production
 
-# Copiar archivos construidos
+# Copiar solo archivos construidos y production deps
 COPY --from=builder /app/backend/dist ./dist
-COPY --from=builder /app/backend/node_modules ./node_modules
+COPY --from=builder /app/backend/package.json ./package.json
+
+# Instalar solo production dependencies
+RUN npm install --omit=dev && npm cache clean --force
+
+# Copiar Prisma client generado
+COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/backend/prisma ./prisma
 
 EXPOSE 3001

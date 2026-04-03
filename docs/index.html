@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Site → WordPress Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222e;
+      --border: #2e2e3e;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --accent-glow: rgba(124,58,237,0.25);
+      --success: #10b981;
+      --warn: #f59e0b;
+      --error: #ef4444;
+      --text: #e8e8f0;
+      --text2: #9090a8;
+      --text3: #5a5a72;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: .8rem;
+    }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; }
+    .header p { color: var(--text2); font-size: .95rem; }
+
+    /* ── Main card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 4px 40px rgba(0,0,0,.4);
+    }
+
+    /* ── Drop zone ── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+      background: var(--surface2);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124,58,237,.06);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .drop-icon { font-size: 2.5rem; margin-bottom: .6rem; }
+    .drop-label { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: .3rem; }
+    .drop-sub { font-size: .85rem; color: var(--text2); }
+    .drop-file-name {
+      margin-top: .8rem;
+      font-size: .85rem;
+      color: var(--accent2);
+      font-weight: 500;
+      background: rgba(124,58,237,.12);
+      border-radius: 8px;
+      padding: .4rem .8rem;
+      display: inline-block;
+    }
+
+    /* ── Inputs ── */
+    .field { margin-top: 1.25rem; }
+    .field label { display: block; font-size: .82rem; color: var(--text2); margin-bottom: .4rem; font-weight: 500; letter-spacing: .02em; text-transform: uppercase; }
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .65rem 1rem;
+      color: var(--text);
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .field input::placeholder { color: var(--text3); }
+
+    /* ── Convert button ── */
+    .btn-convert {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: .85rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 20px var(--accent-glow);
+      letter-spacing: .01em;
+    }
+    .btn-convert:hover { opacity: .9; box-shadow: 0 6px 28px rgba(124,58,237,.45); }
+    .btn-convert:active { transform: scale(.98); }
+    .btn-convert:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    /* ── Log panel ── */
+    .log-panel {
+      margin-top: 1.5rem;
+      background: #0a0a10;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      font-family: 'Consolas', 'Menlo', monospace;
+      font-size: .82rem;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+    .log-panel.visible { display: block; }
+    .log-line { line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+    .log-line.ok   { color: #34d399; }
+    .log-line.warn { color: #fbbf24; }
+    .log-line.err  { color: #f87171; }
+    .log-line.info { color: #818cf8; }
+    .log-line.dim  { color: var(--text3); }
+
+    /* ── Progress steps ── */
+    .steps {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1.5rem;
+      gap: .5rem;
+    }
+    .step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .35rem;
+    }
+    .step-dot {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--text3);
+      transition: all .3s;
+      position: relative;
+    }
+    .step-dot.active {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      color: var(--accent2);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .step-dot.done {
+      border-color: var(--success);
+      background: rgba(16,185,129,.15);
+      color: var(--success);
+    }
+    .step-dot.spin::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--accent2);
+      animation: spin .8s linear infinite;
+    }
+    .step-label { font-size: .72rem; color: var(--text3); text-align: center; transition: color .3s; }
+    .step-label.active { color: var(--accent2); }
+    .step-label.done   { color: var(--success); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Step connector ── */
+    .step-line {
+      flex: none;
+      width: 1.5rem;
+      height: 2px;
+      background: var(--border);
+      margin-top: 15px;
+      transition: background .3s;
+    }
+    .step-line.done { background: var(--success); }
+
+    /* ── Download button ── */
+    .btn-download {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: .85rem;
+      background: linear-gradient(135deg, var(--success), #059669);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .2s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(16,185,129,.3);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      letter-spacing: .01em;
+    }
+    .btn-download.visible { display: flex; }
+    .btn-download:hover { opacity: .9; box-shadow: 0 6px 28px rgba(16,185,129,.45); }
+
+    /* ── Result info ── */
+    .result-info {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(16,185,129,.07);
+      border: 1px solid rgba(16,185,129,.2);
+      border-radius: 12px;
+      font-size: .85rem;
+      color: var(--text2);
+    }
+    .result-info.visible { display: block; }
+    .result-info strong { color: var(--text); }
+
+    /* ── Instructions ── */
+    .instructions {
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 600px;
+    }
+    .instructions h3 { font-size: .85rem; color: var(--text2); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; margin-bottom: 1rem; }
+    .steps-list { counter-reset: step; }
+    .steps-list li {
+      counter-increment: step;
+      display: flex;
+      gap: .8rem;
+      padding: .7rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .88rem;
+      color: var(--text2);
+      align-items: flex-start;
+    }
+    .steps-list li:last-child { border-bottom: none; }
+    .steps-list li::before {
+      content: counter(step);
+      min-width: 24px; height: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700;
+      color: var(--accent2);
+      margin-top: .05rem;
+    }
+    .steps-list li strong { color: var(--text); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">AI Site → WordPress</span>
+    </div>
+    <p>Convierte tu proyecto de Lovable / Bolt.new en un tema WordPress instalable</p>
+  </div>
+
+  <!-- Main card -->
+  <div class="card">
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".zip">
+      <div class="drop-icon">📦</div>
+      <div class="drop-label">Arrastra tu ZIP aquí</div>
+      <div class="drop-sub">o haz clic para seleccionar el archivo</div>
+      <div class="drop-file-name" id="fileName" style="display:none"></div>
+    </div>
+
+    <!-- Theme name -->
+    <div class="field">
+      <label>Nombre del tema</label>
+      <input type="text" id="themeName" placeholder="Mi Empresa" value="">
+    </div>
+
+    <!-- Convert button -->
+    <button class="btn-convert" id="btnConvert" disabled>
+      ✨ Convertir a tema WordPress
+    </button>
+
+    <!-- Progress steps -->
+    <div class="steps" id="stepsRow" style="display:none">
+      <div class="step">
+        <div class="step-dot" id="s1">1</div>
+        <div class="step-label" id="sl1">Extraer</div>
+      </div>
+      <div class="step-line" id="l1"></div>
+      <div class="step">
+        <div class="step-dot" id="s2">2</div>
+        <div class="step-label" id="sl2">Procesar</div>
+      </div>
+      <div class="step-line" id="l2"></div>
+      <div class="step">
+        <div class="step-dot" id="s3">3</div>
+        <div class="step-label" id="sl3">Generar</div>
+      </div>
+      <div class="step-line" id="l3"></div>
+      <div class="step">
+        <div class="step-dot" id="s4">4</div>
+        <div class="step-label" id="sl4">Empaquetar</div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="log-panel" id="logPanel"></div>
+
+    <!-- Result info -->
+    <div class="result-info" id="resultInfo"></div>
+
+    <!-- Download -->
+    <button class="btn-download" id="btnDownload">
+      <span>⬇️</span>
+      <span id="downloadLabel">Descargar tema WordPress</span>
+    </button>
+
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions">
+    <h3>Cómo instalar el tema</h3>
+    <ol class="steps-list">
+      <li><span>Sube el <strong>ZIP del proyecto compilado</strong> (con carpeta <code>dist/</code> o <code>build/</code>)</span></li>
+      <li><span>Escribe el nombre del tema y pulsa <strong>Convertir</strong></span></li>
+      <li><span>Descarga el ZIP generado</span></li>
+      <li><span>En WordPress: <strong>Apariencia → Temas → Añadir nuevo → Subir tema</strong></span></li>
+      <li><span>Activa el tema. Listo — tu web aparece como portada</span></li>
+    </ol>
+  </div>
+
+  <script>
+  // ─── State ──────────────────────────────────────────────────────────────────
+  let selectedFile = null;
+  let outputBlob   = null;
+  let outputName   = '';
+
+  // ─── DOM refs ────────────────────────────────────────────────────────────────
+  const dropZone    = document.getElementById('dropZone');
+  const fileInput   = document.getElementById('fileInput');
+  const fileName    = document.getElementById('fileName');
+  const themeNameEl = document.getElementById('themeName');
+  const btnConvert  = document.getElementById('btnConvert');
+  const stepsRow    = document.getElementById('stepsRow');
+  const logPanel    = document.getElementById('logPanel');
+  const resultInfo  = document.getElementById('resultInfo');
+  const btnDownload = document.getElementById('btnDownload');
+  const downloadLabel = document.getElementById('downloadLabel');
+
+  // ─── Drag & drop ─────────────────────────────────────────────────────────────
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(f) {
+    if (!f.name.endsWith('.zip')) { alert('Por favor selecciona un archivo .zip'); return; }
+    selectedFile = f;
+    fileName.textContent = '📁 ' + f.name;
+    fileName.style.display = 'inline-block';
+    if (!themeNameEl.value.trim()) {
+      themeNameEl.value = f.name.replace(/\.zip$/i, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    btnConvert.disabled = false;
+    resetUI();
+  }
+
+  // ─── Convert ─────────────────────────────────────────────────────────────────
+  btnConvert.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    resetUI();
+    btnConvert.disabled = true;
+    stepsRow.style.display = 'flex';
+    logPanel.classList.add('visible');
+
+    const name = themeNameEl.value.trim() || 'Mi Tema';
+    const slug = slugify(name);
+    outputName = slug + '.zip';
+
+    try {
+      outputBlob = await convertToWordPressTheme(selectedFile, name, slug);
+      downloadLabel.textContent = `Descargar ${outputName}`;
+      btnDownload.classList.add('visible');
+
+      const kb = Math.round(outputBlob.size / 1024);
+      resultInfo.innerHTML = `
+        <strong>✅ Tema generado correctamente</strong><br><br>
+        📦 Archivo: <strong>${outputName}</strong> (${kb} KB)<br>
+        🎨 Tema: <strong>${name}</strong><br><br>
+        Instálalo en WordPress: <strong>Apariencia → Temas → Añadir nuevo → Subir tema</strong>
+      `;
+      resultInfo.classList.add('visible');
+    } catch (err) {
+      addLog('❌ Error: ' + err.message, 'err');
+      btnConvert.disabled = false;
+    }
+  });
+
+  // ─── Download ─────────────────────────────────────────────────────────────────
+  btnDownload.addEventListener('click', () => {
+    if (!outputBlob) return;
+    const url = URL.createObjectURL(outputBlob);
+    const a = document.createElement('a');
+    a.href = url; a.download = outputName;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  // ─── Main converter logic ────────────────────────────────────────────────────
+  async function convertToWordPressTheme(file, name, slug) {
+
+    // STEP 1 — Extraer ZIP de entrada
+    setStep(1, 'spin');
+    addLog('📦 Leyendo ZIP...', 'info');
+    await tick();
+
+    const inputZip = await JSZip.loadAsync(file);
+
+    // Recolectar todos los archivos con su contenido
+    const allFiles = {};
+    const promises = [];
+    inputZip.forEach((relPath, entry) => {
+      if (!entry.dir) {
+        // Normalizar separadores
+        const normPath = relPath.replace(/\\/g, '/');
+        const isText = /\.(html?|css|js|json|svg|txt|xml|ts|tsx|jsx)$/i.test(normPath);
+        promises.push(
+          entry.async(isText ? 'string' : 'uint8array').then(content => {
+            allFiles[normPath] = content;
+          })
+        );
+      }
+    });
+    await Promise.all(promises);
+    addLog(`   ${Object.keys(allFiles).length} archivos extraídos`, 'ok');
+    setStep(1, 'done');
+
+    // STEP 2 — Encontrar dist/build
+    setStep(2, 'spin');
+    addLog('🔍 Buscando output compilado...', 'info');
+    await tick();
+
+    const distRoot = findDist(allFiles);
+    if (distRoot) {
+      addLog(`   ✓ Encontrado: ${distRoot}`, 'ok');
+    } else {
+      addLog('   ⚠️  No se encontró dist/ ni build/. Usando raíz del proyecto.', 'warn');
+    }
+
+    const htmlPath = distRoot ? distRoot + 'index.html' : findIndexHtml(allFiles);
+    if (!htmlPath || !allFiles[htmlPath]) throw new Error('No se encontró index.html en el ZIP.');
+    addLog(`   ✓ index.html: ${htmlPath}`, 'ok');
+    setStep(2, 'done');
+
+    // STEP 3 — Procesar assets y generar PHP
+    setStep(3, 'spin');
+    addLog('⚙️  Procesando assets...', 'info');
+    await tick();
+
+    const html      = allFiles[htmlPath];
+    const baseDir   = distRoot || htmlPath.substring(0, htmlPath.lastIndexOf('/') + 1);
+    const hasRoot   = /<div[^>]+id=["']root["']/i.test(html);
+
+    // Extraer CSS
+    const cssFiles = [];
+    for (const m of html.matchAll(/<link[^>]+href=["']([^"']+\.css[^"']*)["'][^>]*>/gi)) {
+      const href = m[1].split('?')[0].split('#')[0];
+      if (isExternal(href)) continue;
+      const resolved = resolveHref(baseDir, href, allFiles);
+      if (resolved) { cssFiles.push({ href, resolved }); addLog(`   ✓ CSS: ${resolved.split('/').pop()}`, 'ok'); }
+      else addLog(`   ⚠️  CSS no encontrado: ${href}`, 'warn');
+    }
+
+    // Extraer JS
+    const jsFiles = [];
+    for (const m of html.matchAll(/<script([^>]*)src=["']([^"']+\.js[^"']*)["'][^>]*>/gi)) {
+      const attrs = m[1], src = m[2].split('?')[0].split('#')[0];
+      if (isExternal(src)) continue;
+      const resolved = resolveHref(baseDir, src, allFiles);
+      const isModule = /type=["']module["']/i.test(attrs);
+      if (resolved) { jsFiles.push({ src, resolved, isModule }); addLog(`   ✓ JS:  ${resolved.split('/').pop()}${isModule ? ' [module]' : ''}`, 'ok'); }
+      else addLog(`   ⚠️  JS no encontrado: ${src}`, 'warn');
+    }
+
+    // Recolectar imágenes
+    const images = {};
+    const imgExts = /\.(png|jpg|jpeg|gif|svg|webp|ico|avif|bmp)$/i;
+    for (const [p, content] of Object.entries(allFiles)) {
+      if (imgExts.test(p) && p.startsWith(baseDir)) {
+        const fname = p.split('/').pop();
+        images[fname] = content;
+        const rel = p.substring(baseDir.length);
+        ['/' + rel, rel, '/' + fname, fname].forEach(k => { if (!images['__map__']) images['__map__'] = {}; images['__map__'][k] = fname; });
+      }
+    }
+    const imageMap = images['__map__'] || {};
+    delete images['__map__'];
+    addLog(`   ✓ Imágenes: ${Object.keys(images).length}`, 'ok');
+    setStep(3, 'done');
+
+    // STEP 4 — Empaquetar tema
+    setStep(4, 'spin');
+    addLog('📦 Generando tema WordPress...', 'info');
+    await tick();
+
+    const outZip = new JSZip();
+    const theme  = outZip.folder(slug);
+
+    // style.css
+    theme.file('style.css', genStyleCss(name, slug));
+    // functions.php
+    theme.file('functions.php', genFunctionsPhp(slug, cssFiles, jsFiles));
+    // header.php
+    theme.file('header.php', genHeaderPhp());
+    // footer.php
+    theme.file('footer.php', genFooterPhp());
+    // index.php
+    theme.file('index.php', genIndexPhp());
+    // page.php
+    theme.file('page.php', genPagePhp());
+    // front-page.php
+    theme.file('front-page.php', genFrontPagePhp(hasRoot, html, imageMap));
+
+    // Añadir CSS files
+    const assetsCSS = theme.folder('assets/css');
+    for (const { resolved } of cssFiles) {
+      const content = allFiles[resolved];
+      if (content !== undefined) assetsCSS.file(resolved.split('/').pop(), content);
+    }
+
+    // Añadir JS files
+    const assetsJS = theme.folder('assets/js');
+    for (const { resolved } of jsFiles) {
+      const content = allFiles[resolved];
+      if (content !== undefined) assetsJS.file(resolved.split('/').pop(), content);
+    }
+
+    // Añadir imágenes
+    const assetsIMG = theme.folder('assets/images');
+    for (const [fname, content] of Object.entries(images)) {
+      assetsIMG.file(fname, content);
+    }
+
+    const blob = await outZip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    setStep(4, 'done');
+    addLog(`\n✅ Tema generado: ${slug}.zip`, 'ok');
+
+    return blob;
+  }
+
+  // ─── Find dist folder ─────────────────────────────────────────────────────────
+  function findDist(files) {
+    const paths = Object.keys(files);
+    // Buscar index.html dentro de dist/ build/ etc.
+    for (const candidate of ['dist/', 'build/', 'out/']) {
+      const hasIndex = paths.some(p => p.endsWith(candidate + 'index.html') || p === candidate + 'index.html');
+      if (hasIndex) {
+        // Encontrar el prefix antes de dist/
+        const match = paths.find(p => p.endsWith(candidate + 'index.html'));
+        if (match) return match.slice(0, match.lastIndexOf('/') + 1);
+      }
+    }
+    return null;
+  }
+
+  function findIndexHtml(files) {
+    // Intentar en raíz del proyecto (después de carpeta raíz del ZIP)
+    const paths = Object.keys(files).sort((a,b) => a.split('/').length - b.split('/').length);
+    for (const p of paths) {
+      if (p.endsWith('index.html')) return p;
+    }
+    return null;
+  }
+
+  function resolveHref(base, href, files) {
+    let candidates = [];
+    if (href.startsWith('/')) {
+      // Absoluto — buscar en todas las bases posibles
+      const parts = base.split('/').filter(Boolean);
+      while (parts.length >= 0) {
+        const prefix = parts.length ? parts.join('/') + '/' : '';
+        candidates.push(prefix + href.substring(1));
+        if (!parts.length) break;
+        parts.pop();
+      }
+    } else {
+      candidates.push(base + href);
+    }
+    for (const c of candidates) {
+      const norm = c.replace(/\/\//g, '/');
+      if (files[norm] !== undefined) return norm;
+    }
+    return null;
+  }
+
+  function isExternal(url) { return /^(https?:)?\/\//i.test(url) || url.startsWith('data:'); }
+
+  // ─── PHP generators ───────────────────────────────────────────────────────────
+  function genStyleCss(name, slug) {
+    return `/*
+Theme Name: ${name}
+Theme URI: https://github.com/ai-site-exporter
+Author: AI Site Exporter
+Description: Tema generado desde un proyecto AI (Lovable / Bolt.new / Vite).
+Version: 1.0.0
+Requires at least: 6.0
+Tested up to: 6.7
+Requires PHP: 7.4
+Text Domain: ${slug}
+*/
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+img  { max-width: 100%; height: auto; }
+`;
+  }
+
+  function genFunctionsPhp(slug, cssFiles, jsFiles) {
+    const fp = slug.replace(/-/g, '_');
+    const moduleHandles = jsFiles.filter(j => j.isModule).map((_, i) => `${slug}-js-${i}`);
+    let out = `<?php
+/**
+ * Functions — generado por AI Site → WordPress Converter
+ */
+
+if ( ! defined( 'ABSPATH' ) ) exit;
+
+function ${fp}_setup() {
+    add_theme_support( 'title-tag' );
+    add_theme_support( 'post-thumbnails' );
+    add_theme_support( 'html5', array( 'search-form', 'comment-form', 'comment-list', 'gallery', 'caption' ) );
+}
+add_action( 'after_setup_theme', '${fp}_setup' );
+
+function ${fp}_scripts() {
+    wp_enqueue_style( '${slug}-style', get_stylesheet_uri() );
+\n`;
+    cssFiles.forEach(({ resolved }, i) => {
+      const fn = resolved.split('/').pop();
+      out += `    wp_enqueue_style( '${slug}-css-${i}', get_template_directory_uri() . '/assets/css/${fn}', array(), null );\n`;
+    });
+    if (jsFiles.length) out += '\n';
+    jsFiles.forEach(({ resolved }, i) => {
+      const fn = resolved.split('/').pop();
+      out += `    wp_enqueue_script( '${slug}-js-${i}', get_template_directory_uri() . '/assets/js/${fn}', array(), null, true );\n`;
+    });
+    out += `}\nadd_action( 'wp_enqueue_scripts', '${fp}_scripts' );\n`;
+
+    if (moduleHandles.length) {
+      out += `\n// Añadir type="module" a los scripts ES module de Vite\nadd_filter( 'script_loader_tag', function( $tag, $handle, $src ) {\n`;
+      out += `    $module_handles = array( '${moduleHandles.join("', '")}' );\n`;
+      out += `    if ( in_array( $handle, $module_handles, true ) ) {\n`;
+      out += `        return str_replace( ' src=', ' type="module" crossorigin src=', $tag );\n`;
+      out += `    }\n    return $tag;\n}, 10, 3 );\n`;
+    }
+    return out;
+  }
+
+  function genHeaderPhp() {
+    return `<?php /** Header */ ?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo( 'charset' ); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php wp_head(); ?>
+</head>
+<body <?php body_class(); ?>>
+<?php wp_body_open(); ?>
+`;
+  }
+
+  function genFooterPhp() {
+    return `<?php wp_footer(); ?>
+</body>
+</html>
+`;
+  }
+
+  function genIndexPhp() {
+    return `<?php get_header(); ?>
+<main id="primary">
+    <?php if ( have_posts() ) : while ( have_posts() ) : the_post(); ?>
+        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+            <div class="entry-content"><?php the_content(); ?></div>
+        </article>
+    <?php endwhile; endif; ?>
+</main>
+<?php get_footer(); ?>
+`;
+  }
+
+  function genPagePhp() { return genIndexPhp(); }
+
+  function genFrontPagePhp(hasRoot, html, imageMap) {
+    let content = '<?php get_header(); ?>\n';
+    if (hasRoot) {
+      content += '<div id="root"></div>\n';
+    } else {
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      let body = bodyMatch ? bodyMatch[1].trim() : '';
+      // Quitar <script src="..."> del body
+      body = body.replace(/<script[^>]+src=[^>]*?><\/script>/gi, '').trim();
+      // Reescribir URLs de imágenes
+      for (const [orig, fname] of Object.entries(imageMap)) {
+        const wpUrl = `<?php echo esc_url( get_template_directory_uri() ); ?>/assets/images/${fname}`;
+        body = body.split('"' + orig + '"').join('"' + wpUrl + '"');
+        body = body.split("'" + orig + "'").join("'" + wpUrl + "'");
+      }
+      content += body + '\n';
+    }
+    content += '<?php get_footer(); ?>\n';
+    return content;
+  }
+
+  // ─── Step UI ─────────────────────────────────────────────────────────────────
+  function setStep(n, state) {
+    const dot   = document.getElementById('s'  + n);
+    const label = document.getElementById('sl' + n);
+    dot.className   = 'step-dot ' + (state === 'done' ? 'done' : state === 'spin' ? 'active spin' : 'active');
+    label.className = 'step-label ' + (state === 'done' ? 'done' : 'active');
+    if (state === 'done' && n < 4) {
+      document.getElementById('l' + n).classList.add('done');
+    }
+  }
+
+  // ─── Log ─────────────────────────────────────────────────────────────────────
+  function addLog(msg, type = 'dim') {
+    const el = document.createElement('div');
+    el.className = 'log-line ' + type;
+    el.textContent = msg;
+    logPanel.appendChild(el);
+    logPanel.scrollTop = logPanel.scrollHeight;
+  }
+
+  // ─── Reset UI ─────────────────────────────────────────────────────────────────
+  function resetUI() {
+    logPanel.innerHTML = '';
+    logPanel.classList.remove('visible');
+    stepsRow.style.display = 'none';
+    resultInfo.classList.remove('visible');
+    btnDownload.classList.remove('visible');
+    outputBlob = null;
+    [1,2,3,4].forEach(n => {
+      document.getElementById('s' + n).className = 'step-dot';
+      document.getElementById('sl' + n).className = 'step-label';
+    });
+    [1,2,3].forEach(n => document.getElementById('l' + n).classList.remove('done'));
+  }
+
+  // ─── Slugify ─────────────────────────────────────────────────────────────────
+  function slugify(s) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mi-tema';
+  }
+
+  // ─── Tick (let browser paint) ─────────────────────────────────────────────────
+  function tick() { return new Promise(r => requestAnimationFrame(() => setTimeout(r, 20))); }
+  </script>
+</body>
+</html>
